@@ -30,6 +30,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    href={route('admin.exchange-rates.index')}
+                                    active={route().current('admin.exchange-rates.index')}
+                                >
+                                    Exchange Rates
+                                </NavLink>
                             </div>
                         </div>
 
@@ -133,6 +139,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('dashboard')}
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('admin.exchange-rates.index')}
+                            active={route().current('admin.exchange-rates.index')}
+                        >
+                            Exchange Rates
                         </ResponsiveNavLink>
                     </div>
 
