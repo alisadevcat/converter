@@ -31,8 +31,8 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Dashboard
                                 </NavLink>
                                 <NavLink
-                                    href={route('admin.exchange-rates.index')}
-                                    active={route().current('admin.exchange-rates.index')}
+                                    href={route('exchange-rates.index')}
+                                    active={route().current('exchange-rates.index')}
                                 >
                                     Exchange Rates
                                 </NavLink>
@@ -141,10 +141,11 @@ export default function AuthenticatedLayout({ header, children }) {
                             Dashboard
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
-                            href={route('admin.exchange-rates.index')}
-                            active={route().current('admin.exchange-rates.index')}
+                            method="post"
+                            href={route('logout')}
+                            as="button"
                         >
-                            Exchange Rates
+                            Log Out
                         </ResponsiveNavLink>
                     </div>
 

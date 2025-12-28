@@ -1,33 +1,39 @@
-import SimpleLayout from '@/Layouts/SimpleLayout';
-import { Head } from '@inertiajs/react';
+import { Head } from "@inertiajs/react";
+import SimpleLayout from "@/Layouts/SimpleLayout";
+import CurrencyConverter from "@/Pages/Converter/Partials/CurrencyConverter";
 
-export default function Index({ currencies, defaultBaseCurrency }) {
+export default function Converter({
+    currencies = [],
+    converterResult = null,
+    converterError = null,
+}) {
     return (
         <SimpleLayout>
-            <Head title="Currency Converter" />
+            <Head title="Converter" />
+                            <div className="flex flex-col items-center justify-center text-center">
+                                <div className="max-w-3xl mx-auto px-6">
+                    <h1 className="text-4xl font-bold text-black mb-6">
+                                        Welcome to Currency Converter
+                                    </h1>
+                    <p className="text-lg text-black/70 mb-8">
+                                        Convert currencies with real-time
+                                        exchange rates. Our system automatically
+                                        updates exchange rates daily from
+                                        reliable sources, ensuring you always
+                                        have access to the latest conversion
+                                        rates.
+                                    </p>
 
-            <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-                        Currency Converter
-                    </h1>
-                    <p className="mt-4 text-lg text-gray-600">
-                        Convert between currencies using real-time exchange rates
-                    </p>
-                </div>
-
-                <div className="mx-auto max-w-2xl">
-                    <div className="bg-white rounded-lg shadow-lg p-8">
-                        <p className="text-center text-gray-600">
-                            Converter functionality will be implemented here.
-                        </p>
-                        <p className="text-center text-sm text-gray-500 mt-2">
-                            Default base currency: {defaultBaseCurrency}
-                        </p>
-                    </div>
-                </div>
-            </div>
+                                    {/* Currency Converter */}
+                                    <div className="mb-8">
+                                        <CurrencyConverter
+                                            currencies={currencies}
+                                            result={converterResult}
+                                            error={converterError}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
         </SimpleLayout>
     );
 }
-
