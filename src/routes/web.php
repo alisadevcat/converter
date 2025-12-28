@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Modules\Currency\Controllers\CurrencyConverterController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -9,9 +8,6 @@ use Inertia\Inertia;
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
-
-Route::get('/converter', [CurrencyConverterController::class, 'index'])
-    ->name('converter.index');
 
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');

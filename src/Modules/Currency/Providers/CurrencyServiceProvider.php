@@ -6,9 +6,11 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
 use Modules\Currency\Contracts\CurrencyConverterInterface;
 use Modules\Currency\Contracts\Api\CurrencyApiInterface;
+use Modules\Currency\Contracts\Converter\CurrencyRateLookupInterface;
 use Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
 use Modules\Currency\Repositories\ExchangeRateRepository;
 use Modules\Currency\Repositories\Api\CurrencyApiRepository;
+use Modules\Currency\Repositories\Converter\CurrencyRateLookupRepository;
 use Modules\Currency\Services\CurrencyConverterService;
 use Modules\Currency\Services\CurrencyConfigService;
 
@@ -37,6 +39,12 @@ class CurrencyServiceProvider extends ServiceProvider
             CurrencyApiRepository::class
         );
 
+        // Bind converter rate lookup interface to implementation
+        $this->app->bind(
+            CurrencyRateLookupInterface::class,
+            CurrencyRateLookupRepository::class
+        );
+
         // Register CurrencyConfigService as singleton
         $this->app->singleton(CurrencyConfigService::class, function ($app) {
             return new CurrencyConfigService();
@@ -54,6 +62,7 @@ class CurrencyServiceProvider extends ServiceProvider
             'currency'
         );
 
+        $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
         $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         $this->loadRoutesFrom(__DIR__ . '/../routes/admin.php');
 

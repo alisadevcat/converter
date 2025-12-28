@@ -89,4 +89,23 @@ return [
         'retry_delay' => env('CURRENCY_SYNC_RETRY_DELAY', 5), // base delay for retries (seconds)
         'schedule_time' => env('CURRENCY_SYNC_SCHEDULE_TIME', '00:00'), // daily sync time (H:i format)
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conversion Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for currency conversion behavior.
+    |
+    */
+
+    'conversion' => [
+        'fallback_currency' => env('CURRENCY_FALLBACK', 'USD'), // Currency to use for indirect conversions
+        'enable_fallback' => env('CURRENCY_ENABLE_FALLBACK', true), // Enable fallback via intermediate currency
+        'amount_decimals' => env('CURRENCY_AMOUNT_DECIMALS', 2), // Decimal places for amounts
+        'rate_decimals' => env('CURRENCY_RATE_DECIMALS', 4), // Decimal places for exchange rates
+        'round_result' => env('CURRENCY_ROUND_RESULT', true), // Round converted amounts
+        'min_amount' => env('CURRENCY_MIN_AMOUNT', 0.01), // Minimum conversion amount
+        'max_amount' => env('CURRENCY_MAX_AMOUNT', 999999999.99), // Maximum conversion amount
+    ],
 ];
