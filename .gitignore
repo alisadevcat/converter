@@ -1,0 +1,28 @@
+# Environment files (contain sensitive data like passwords)
+env/*.env
+env/.env*
+
+# Docker volumes data
+db_data/
+
+# IDE files
+.idea/
+.vscode/
+.fleet/
+.phpactor.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Keep env directory structure but ignore content
+!env/.gitkeep
+
