@@ -1,99 +1,128 @@
 <?php
 
-namespace Modules\Currency\Repositories;
+namespace App\Modules\Currency\Repositories;
 
-use Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
-use Modules\Currency\Models\ExchangeRate;
+use App\Modules\Currency\Models\ExchangeRate;
+use App\Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ExchangeRateRepository implements ExchangeRateRepositoryInterface
 {
     /**
-     * Find exchange rate by base currency, target currency, and date.
+     * Get latest exchange rates by base currency code.
      *
-     * @param string $baseCurrency
-     * @param string $targetCurrency
-     * @param string|null $date
-     * @return ExchangeRate|null
+     * @param string $baseCurrencyCode The code of the base currency
+     * @return Collection Collection of ExchangeRate models ordered by date desc, then target_code
      */
-    public function findByBaseAndTarget(string $baseCurrency, string $targetCurrency, ?string $date = null): ?ExchangeRate
+    public function getLatestRatesByBaseCurrencyCode(string $baseCurrencyCode): Collection
     {
-        $query = ExchangeRate::where('base_code', $baseCurrency)
-            ->where('target_code', $targetCurrency);
-
-        if ($date) {
-            $query->where('date', $date);
-        } else {
-            // Get the latest rate for this pair
-            $query->orderBy('date', 'desc');
-        }
-
-        return $query->first();
-    }
-
-    /**
-     * Get all exchange rates.
-     *
-     * @return Collection
-     */
-    public function getAll(): Collection
-    {
-        return ExchangeRate::orderBy('date', 'desc')
-            ->orderBy('base_code')
+        return ExchangeRate::where('base_code', $baseCurrencyCode)
+            ->orderBy('date', 'desc')
             ->orderBy('target_code')
             ->get();
     }
 
     /**
-     * Get exchange rates by base currency.
+     * Find exchange rate by base currency, target currency, and date.
      *
-     * @param string $baseCurrency
-     * @param string|null $date
-     * @return Collection
+     * @param string $baseCurrencyCode The base currency code
+     * @param string $targetCurrencyCode The target currency code
+     * @param string $date Date string in 'Y-m-d' format
+     * @return ExchangeRate|null The exchange rate or null if not found
      */
-    public function getByBaseCurrency(string $baseCurrency, ?string $date = null): Collection
+    public function findRate(string $baseCurrencyCode, string $targetCurrencyCode, string $date): ?ExchangeRate
     {
-        $query = ExchangeRate::where('base_code', $baseCurrency);
-
-        if ($date) {
-            $query->where('date', $date);
-        } else {
-            // Get latest rates for each target currency
-            $subQuery = ExchangeRate::select('target_code', DB::raw('MAX(date) as max_date'))
-                ->where('base_code', $baseCurrency)
-                ->groupBy('target_code');
-
-            $query->joinSub($subQuery, 'latest', function ($join) {
-                $join->on('exchange_rate.target_code', '=', 'latest.target_code')
-                    ->on('exchange_rate.date', '=', 'latest.max_date');
-            });
-        }
-
-        return $query->orderBy('target_code')->get();
+        return ExchangeRate::where('base_code', $baseCurrencyCode)
+            ->where('target_code', $targetCurrencyCode)
+            ->where('date', $date)
+            ->first();
     }
 
     /**
-     * Create or update an exchange rate.
+     * Find the latest available exchange rate (fallback when specific date not found).
      *
-     * @param array $attributes
-     * @param array $values
-     * @return ExchangeRate
+     * @param string $baseCurrencyCode The base currency code
+     * @param string $targetCurrencyCode The target currency code
+     * @return ExchangeRate|null The latest exchange rate or null if not found
      */
-    public function updateOrCreate(array $attributes, array $values): ExchangeRate
+    public function findLatestRate(string $baseCurrencyCode, string $targetCurrencyCode): ?ExchangeRate
     {
-        return ExchangeRate::updateOrCreate($attributes, $values);
+        return ExchangeRate::where('base_code', $baseCurrencyCode)
+            ->where('target_code', $targetCurrencyCode)
+            ->orderBy('date', 'desc')
+            ->first();
     }
 
     /**
-     * Create multiple exchange rates.
+     * Check if exchange rates exist for a specific base currency and date.
      *
-     * @param array $rates
+     * @param string $baseCurrencyCode The base currency code
+     * @param string $date Date string in 'Y-m-d' format
+     * @return bool True if rates exist, false otherwise
+     */
+    public function hasRatesForDate(string $baseCurrencyCode, string $date): bool
+    {
+        return ExchangeRate::where('base_code', $baseCurrencyCode)
+            ->where('date', $date)
+            ->exists();
+    }
+
+    /**
+     * Get all base currency codes that have rates for a specific date.
+     *
+     * @param string $date Date string in 'Y-m-d' format
+     * @return array Array of base currency codes
+     */
+    public function getBaseCurrencyCodesWithRatesForDate(string $date): array
+    {
+        return ExchangeRate::where('date', $date)
+            ->distinct()
+            ->pluck('base_code')
+            ->toArray();
+    }
+
+    /**
+     * Upsert daily exchange rates for a base currency.
+     * Creates new records or updates existing ones based on unique constraint.
+     *
+     * @param string $baseCurrencyCode The base currency code
+     * @param array $rates Array of rates in format ['target_code' => rate, ...]
+     * @param string $date Date string in 'Y-m-d' format
      * @return void
      */
-    public function createMany(array $rates): void
-    {
-        ExchangeRate::insert($rates);
+    public function upsertDailyRates(
+        string $baseCurrencyCode,
+        array $rates,
+        string $date
+    ): void {
+        $now = now();
+        $rows = [];
+
+        foreach ($rates as $targetCurrencyCode => $rate) {
+            // Skip if rate is not numeric
+            if (!is_numeric($rate)) {
+                continue;
+            }
+
+            $rows[] = [
+                'base_code' => $baseCurrencyCode,
+                'target_code' => $targetCurrencyCode,
+                'rate' => (float) $rate,
+                'date' => $date,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if (empty($rows)) {
+            return;
+        }
+
+        // Upsert with unique constraint on base_code, target_code, date
+        ExchangeRate::upsert(
+            $rows,
+            ['base_code', 'target_code', 'date'],
+            ['rate', 'updated_at']
+        );
     }
 }
-

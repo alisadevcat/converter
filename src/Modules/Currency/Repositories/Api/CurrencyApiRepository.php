@@ -1,86 +1,53 @@
 <?php
 
-namespace Modules\Currency\Repositories\Api;
+namespace App\Modules\Currency\Repositories\Api;
 
+use App\Modules\Currency\Contracts\Api\CurrencyApiInterface;
+use App\Modules\Currency\Exceptions\CurrencyApiException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
-use Modules\Currency\Contracts\Api\CurrencyApiInterface;
-use Modules\Currency\Exceptions\CurrencyApiException;
-use Modules\Currency\Services\CurrencyConfigService;
-use Illuminate\Support\Facades\Log;
 
 class CurrencyApiRepository implements CurrencyApiInterface
 {
-    protected Client $httpClient;
-    protected CurrencyConfigService $configService;
-    protected string $baseUrl;
-    protected string $apiKey;
-    protected int $timeout;
+    private const BASE_URL = 'https://api.freecurrencyapi.com';
+    private const API_ENDPOINT = 'v1/latest';
+    private const DEFAULT_TIMEOUT = 30;
+    private const DEFAULT_BASE_CURRENCY = 'USD';
 
-    public function __construct(CurrencyConfigService $configService)
+    private Client $client;
+    private string $apiKey;
+
+    public function __construct()
     {
-        $this->configService = $configService;
-        $this->baseUrl = config('currency.api.base_url', 'https://api.freecurrencyapi.com/v1');
-        $this->apiKey = config('currency.api.api_key', '');
-        $this->timeout = config('currency.api.timeout', 30);
-
-        $this->httpClient = new Client([
-            'timeout' => $this->timeout,
-            'verify' => true,
-        ]);
+        $this->apiKey = config('services.currency.api_key');
+        $this->client = $this->createHttpClient();
     }
 
     /**
      * Fetch latest exchange rates from the API.
      *
-     * @param string|null $baseCurrency The base currency code (e.g., 'USD'). If null, uses default from config.
-     * @return array Array of rates with currency codes as keys
-     * @throws CurrencyApiException
+     * @param string|null $baseCurrency Base currency code (defaults to 'USD')
+     * @return array Raw API response data containing 'data' field with rates
+     * @throws CurrencyApiException If API request fails or data is invalid
      */
     public function fetchLatestRates(?string $baseCurrency = null): array
     {
-        // Validate API key
-        if (empty($this->apiKey)) {
-            throw CurrencyApiException::missingApiKey();
-        }
-
-        // Use provided base currency or default from config
-        $baseCurrency = $baseCurrency ?? config('currency.default_base_currency', 'USD');
-        $baseCurrency = strtoupper($baseCurrency);
-
-        // Validate base currency
-        if (!$this->configService->isSupported($baseCurrency)) {
-            throw CurrencyApiException::requestFailed("Unsupported base currency: {$baseCurrency}");
-        }
+        $baseCurrency = $baseCurrency ?? self::DEFAULT_BASE_CURRENCY;
 
         try {
-            $response = $this->makeRequest($baseCurrency);
-            return $this->parseResponse($response);
-        } catch (RequestException $e) {
-            $this->handleRequestException($e);
-            throw CurrencyApiException::requestFailed(
-                'Failed to fetch exchange rates from API',
-                $e->getCode(),
-                $e
-            );
+            $response = $this->makeApiRequest($baseCurrency);
+            $data = $this->parseResponse($response);
+            $this->validateResponse($data);
+
+            return $data;
+        } catch (CurrencyApiException $e) {
+            throw $e;
         } catch (GuzzleException $e) {
-            Log::error('Currency API Guzzle exception', [
-                'message' => $e->getMessage(),
-                'base_currency' => $baseCurrency,
-            ]);
-            throw CurrencyApiException::requestFailed(
-                'Network error while fetching exchange rates: ' . $e->getMessage(),
-                $e->getCode(),
-                $e
-            );
+            throw $this->handleHttpException($e, $baseCurrency);
         } catch (\Exception $e) {
-            Log::error('Currency API unexpected exception', [
-                'message' => $e->getMessage(),
-                'base_currency' => $baseCurrency,
-            ]);
-            throw CurrencyApiException::requestFailed(
-                'Unexpected error: ' . $e->getMessage(),
+            throw new CurrencyApiException(
+                "Error processing exchange rate data for {$baseCurrency}: " . $e->getMessage(),
                 $e->getCode(),
                 $e
             );
@@ -88,150 +55,112 @@ class CurrencyApiRepository implements CurrencyApiInterface
     }
 
     /**
-     * Make HTTP request to the API.
+     * Create and configure HTTP client.
+     */
+    private function createHttpClient(): Client
+    {
+        return new Client([
+            'base_uri' => self::BASE_URL,
+            'headers' => [
+                'user-agent' => 'Freecurrencyapi/PHP/0.1',
+                'accept' => 'application/json',
+                'content-type' => 'application/json',
+            ],
+            'timeout' => self::DEFAULT_TIMEOUT,
+        ]);
+    }
+
+    /**
+     * Make API request.
      *
      * @param string $baseCurrency
-     * @return array
+     * @return \Psr\Http\Message\ResponseInterface
      * @throws GuzzleException
      */
-    protected function makeRequest(string $baseCurrency): array
+    private function makeApiRequest(string $baseCurrency): \Psr\Http\Message\ResponseInterface
     {
-        $url = $this->baseUrl . '/latest';
-
-        $response = $this->httpClient->get($url, [
+        return $this->client->request('GET', self::API_ENDPOINT, [
             'query' => [
                 'apikey' => $this->apiKey,
                 'base_currency' => $baseCurrency,
-            ],
+            ]
         ]);
+    }
 
-        $statusCode = $response->getStatusCode();
-
-        if ($statusCode !== 200) {
-            throw CurrencyApiException::requestFailed(
-                "API returned status code: {$statusCode}"
-            );
-        }
-
+    /**
+     * Parse JSON response from API.
+     *
+     * @param \Psr\Http\Message\ResponseInterface $response
+     * @return array
+     * @throws CurrencyApiException
+     */
+    private function parseResponse(\Psr\Http\Message\ResponseInterface $response): array
+    {
         $body = $response->getBody()->getContents();
         $data = json_decode($body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw CurrencyApiException::invalidResponse(
-                'Failed to parse JSON response: ' . json_last_error_msg()
+            throw new CurrencyApiException(
+                'Failed to parse API response: ' . json_last_error_msg()
             );
+        }
+
+        if (!is_array($data)) {
+            throw new CurrencyApiException('API response is not a valid JSON object');
         }
 
         return $data;
     }
 
     /**
-     * Parse API response and extract rates.
+     * Validate API response structure.
      *
-     * @param array $response
-     * @return array
-     * @throws CurrencyApiException
-     */
-    protected function parseResponse(array $response): array
-    {
-        // Check if response has the expected structure
-        if (!isset($response['data']) || !is_array($response['data'])) {
-            throw CurrencyApiException::invalidResponse(
-                'API response does not contain expected "data" field'
-            );
-        }
-
-        $rates = $response['data'];
-
-        // Validate that rates is not empty
-        if (empty($rates)) {
-            throw CurrencyApiException::invalidResponse(
-                'API response contains no exchange rates'
-            );
-        }
-
-        // Ensure all rates are numeric
-        foreach ($rates as $currency => $rate) {
-            if (!is_numeric($rate)) {
-                Log::warning('Invalid rate value received from API', [
-                    'currency' => $currency,
-                    'rate' => $rate,
-                ]);
-                unset($rates[$currency]);
-            }
-        }
-
-        if (empty($rates)) {
-            throw CurrencyApiException::invalidResponse(
-                'No valid exchange rates found in API response'
-            );
-        }
-
-        return $rates;
-    }
-
-    /**
-     * Handle request exceptions with detailed error information.
-     *
-     * @param RequestException $e
+     * @param array $data
      * @return void
      * @throws CurrencyApiException
      */
-    protected function handleRequestException(RequestException $e): void
+    private function validateResponse(array $data): void
     {
-        $statusCode = null;
-        $responseBody = null;
+        if (!isset($data['data'])) {
+            throw new CurrencyApiException('Invalid API response: missing "data" field');
+        }
 
-        if ($e->hasResponse()) {
-            $response = $e->getResponse();
-            $statusCode = $response->getStatusCode();
-            $responseBody = $response->getBody()->getContents();
+        if (!is_array($data['data'])) {
+            throw new CurrencyApiException('Invalid API response: "data" field is not an array');
+        }
 
-            Log::error('Currency API request failed', [
-                'status_code' => $statusCode,
-                'response_body' => $responseBody,
-                'message' => $e->getMessage(),
-            ]);
-
-            // Try to parse error message from response
-            $errorData = json_decode($responseBody, true);
-            if (isset($errorData['message'])) {
-                throw CurrencyApiException::requestFailed(
-                    "API Error: {$errorData['message']}",
-                    $statusCode,
-                    $e
-                );
-            }
-
-            // Handle specific status codes
-            match ($statusCode) {
-                401 => throw CurrencyApiException::requestFailed(
-                    'API authentication failed. Please check your API key.',
-                    $statusCode,
-                    $e
-                ),
-                403 => throw CurrencyApiException::requestFailed(
-                    'API access forbidden. Please check your API key permissions.',
-                    $statusCode,
-                    $e
-                ),
-                429 => throw CurrencyApiException::requestFailed(
-                    'API rate limit exceeded. Please try again later.',
-                    $statusCode,
-                    $e
-                ),
-                500, 502, 503, 504 => throw CurrencyApiException::requestFailed(
-                    'API server error. Please try again later.',
-                    $statusCode,
-                    $e
-                ),
-                default => null,
-            };
-        } else {
-            Log::error('Currency API request failed without response', [
-                'message' => $e->getMessage(),
-            ]);
+        if (empty($data['data'])) {
+            throw new CurrencyApiException('Invalid API response: "data" field is empty');
         }
     }
-}
 
+    /**
+     * Handle HTTP exceptions with more specific error messages.
+     *
+     * @param GuzzleException $e
+     * @param string $baseCurrency
+     * @return CurrencyApiException
+     */
+    private function handleHttpException(GuzzleException $e, string $baseCurrency): CurrencyApiException
+    {
+        $message = "Unable to fetch exchange rates for {$baseCurrency}";
+
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            $statusCode = $e->getResponse()->getStatusCode();
+
+            if ($statusCode === 429) {
+                $message .= ': Rate limit exceeded';
+            } elseif ($statusCode === 401) {
+                $message .= ': Invalid API key';
+            } elseif ($statusCode >= 500) {
+                $message .= ': API server error';
+            } else {
+                $message .= ": HTTP {$statusCode}";
+            }
+        } else {
+            $message .= ': ' . $e->getMessage();
+        }
+
+        return new CurrencyApiException($message, $e->getCode(), $e);
+    }
+}

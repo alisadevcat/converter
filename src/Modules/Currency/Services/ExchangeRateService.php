@@ -1,61 +1,32 @@
 <?php
 
-namespace Modules\Currency\Services;
+namespace App\Modules\Currency\Services;
 
-use Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
-use Modules\Currency\Models\ExchangeRate;
+use App\Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
+use App\Modules\Currency\Repositories\ExchangeRateRepository;
 use Illuminate\Support\Collection;
 
 class ExchangeRateService
 {
     public function __construct(
-        protected ExchangeRateRepositoryInterface $repository,
-        protected CurrencyConfigService $configService
-    ) {
-    }
+        private ExchangeRateRepositoryInterface $exchangeRateRepository
+    ) {}
 
     /**
-     * Get all exchange rates.
+     * Get latest exchange rates by base currency code.
      *
-     * @return Collection
+     * @param string $baseCurrencyCode The code of the base currency
+     * @return Collection Collection of ExchangeRate models for the specified base currency
      */
-    public function getAllRates(): Collection
+    public function getLatestRatesByBaseCurrencyCode(string $baseCurrencyCode): Collection
     {
-        return $this->repository->getAll();
+        return $this->exchangeRateRepository->getLatestRatesByBaseCurrencyCode($baseCurrencyCode);
     }
 
-    /**
-     * Get exchange rates by base currency.
-     *
-     * @param string $baseCurrency
-     * @param string|null $date
-     * @return Collection
-     */
-    public function getRatesByBaseCurrency(string $baseCurrency, ?string $date = null): Collection
-    {
-        $baseCurrency = strtoupper($baseCurrency);
-
-        if (!$this->configService->isSupported($baseCurrency)) {
-            return collect();
-        }
-
-        return $this->repository->getByBaseCurrency($baseCurrency, $date);
-    }
-
-    /**
-     * Get exchange rate for specific currencies.
-     *
-     * @param string $baseCurrency
-     * @param string $targetCurrency
-     * @param string|null $date
-     * @return ExchangeRate|null
-     */
-    public function getRate(string $baseCurrency, string $targetCurrency, ?string $date = null): ?ExchangeRate
-    {
-        $baseCurrency = strtoupper($baseCurrency);
-        $targetCurrency = strtoupper($targetCurrency);
-
-        return $this->repository->findByBaseAndTarget($baseCurrency, $targetCurrency, $date);
-    }
+    // Note: This service can be enhanced in the future with additional business logic such as:
+    // - Filtering inactive currencies
+    // - Rate validation and formatting
+    // - Date range filtering
+    // - Rate history calculations
+    // - etc.
 }
-

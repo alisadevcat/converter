@@ -1,40 +1,65 @@
 <?php
 
-namespace Modules\Currency\Controllers;
+namespace App\Modules\Currency\Controllers;
 
+use App\Modules\Currency\Requests\ConvertCurrencyRequest;
+use App\Modules\Currency\Services\ConverterService;
+use App\Modules\Currency\Services\CurrencyConfigService;
 use App\Http\Controllers\Controller;
-use Modules\Currency\Services\CurrencyConfigService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class CurrencyConverterController extends Controller
 {
     public function __construct(
-        protected CurrencyConfigService $configService
-    ) {
-    }
+        private ConverterService $converterService
+    ) {}
 
     /**
-     * Display the currency converter page.
-     *
-     * @return Response
+     * Display the welcome page with currency converter.
      */
     public function index(): Response
     {
-        // Get all currencies for the dropdowns
-        $currencies = collect($this->configService->getCurrencies())->map(function ($currency, $code) {
-            return [
-                'code' => $code,
-                'name' => $currency['name'],
-                'symbol' => $currency['symbol'],
-            ];
-        })->values();
-
-        return Inertia::render('Converter/Index', [
+        $currencies = CurrencyConfigService::getSupportedCodes();
+        return Inertia::render('Coverter/Index', [
             'currencies' => $currencies,
-            'defaultBaseCurrency' => $this->configService->getDefaultBaseCurrency(),
         ]);
     }
-}
 
+    /**
+     * Convert currency.
+     */
+    public function convert(ConvertCurrencyRequest $request): Response
+    {
+        $validated = $request->validated();
+        $currencies = CurrencyConfigService::getSupportedCodes();
+        try {
+            $result = $this->converterService->convert(
+                (float) $validated['amount'],
+                $validated['from_currency'],
+                $validated['to_currency']
+            );
+
+            return Inertia::render('Coverter/Index', [
+                'converterResult' => $result->toArray(),
+                'currencies' => $currencies,
+            ]);
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            return Inertia::render('Coverter/Index', [
+                'converterError' => $e->getMessage(),
+                'currencies' => $currencies,
+            ]);
+        } catch (\Exception $e) {
+            // Log unexpected errors
+            \Log::error('Unexpected error in currency conversion', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return Inertia::render('Coverter/Index', [
+                'converterError' => 'An unexpected error occurred. Please try again.',
+                'currencies' => $currencies,
+            ]);
+        }
+    }
+}

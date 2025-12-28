@@ -1,84 +1,47 @@
 <?php
 
-namespace Modules\Currency\Services;
+namespace App\Modules\Currency\Services;
 
 class CurrencyConfigService
 {
-    /**
-     * Get all supported currencies.
-     *
-     * @return array
-     */
-    public function getCurrencies(): array
+    private static ?array $currencies = null;
+
+    private static function getCurrencies(): array
     {
-        return config('currency.currencies', []);
+        if (self::$currencies === null) {
+            self::$currencies = require __DIR__ . '/currencies.php';
+        }
+        return self::$currencies;
     }
 
-    /**
-     * Get currency information by code.
-     *
-     * @param string $code
-     * @return array|null
-     */
-    public function getCurrency(string $code): ?array
+    public static function getSupportedCodes(): array
     {
-        $currencies = $this->getCurrencies();
-        return $currencies[strtoupper($code)] ?? null;
+        return array_keys(self::getCurrencies());
     }
 
-    /**
-     * Get currency name by code.
-     *
-     * @param string $code
-     * @return string|null
-     */
-    public function getCurrencyName(string $code): ?string
+    public static function getActiveCodes(): array
     {
-        $currency = $this->getCurrency($code);
-        return $currency['name'] ?? null;
+        // All currencies in the map are considered active
+        return self::getSupportedCodes();
     }
 
-    /**
-     * Get currency symbol by code.
-     *
-     * @param string $code
-     * @return string|null
-     */
-    public function getCurrencySymbol(string $code): ?string
+    public static function getCurrencyInfo(string $code): ?array
     {
-        $currency = $this->getCurrency($code);
-        return $currency['symbol'] ?? null;
+        return self::getCurrencies()[$code] ?? null;
     }
 
-    /**
-     * Check if currency is supported.
-     *
-     * @param string $code
-     * @return bool
-     */
-    public function isSupported(string $code): bool
+    public static function isValidCode(string $code): bool
     {
-        return $this->getCurrency($code) !== null;
+        return isset(self::getCurrencies()[$code]);
     }
 
-    /**
-     * Get all currency codes.
-     *
-     * @return array
-     */
-    public function getCurrencyCodes(): array
+    public static function getName(string $code): ?string
     {
-        return array_keys($this->getCurrencies());
+        return self::getCurrencies()[$code]['name'] ?? null;
     }
 
-    /**
-     * Get default base currency.
-     *
-     * @return string
-     */
-    public function getDefaultBaseCurrency(): string
+    public static function getSymbol(string $code): ?string
     {
-        return config('currency.default_base_currency', 'USD');
+        return self::getCurrencies()[$code]['symbol'] ?? null;
     }
 }
-

@@ -1,53 +1,70 @@
 <?php
 
-namespace Modules\Currency\Contracts;
+namespace App\Modules\Currency\Contracts;
 
-use Modules\Currency\Models\ExchangeRate;
+use App\Modules\Currency\Models\ExchangeRate;
 use Illuminate\Support\Collection;
 
 interface ExchangeRateRepositoryInterface
 {
     /**
+     * Get latest exchange rates by base currency code.
+     *
+     * @param string $baseCurrencyCode The code of the base currency
+     * @return Collection Collection of ExchangeRate models ordered by date desc, then target_code
+     */
+    public function getLatestRatesByBaseCurrencyCode(string $baseCurrencyCode): Collection;
+
+
+
+    /**
      * Find exchange rate by base currency, target currency, and date.
      *
-     * @param string $baseCurrency The base currency code
-     * @param string $targetCurrency The target currency code
-     * @param string|null $date Date in Y-m-d format. If null, uses latest available rate.
-     * @return ExchangeRate|null
+     * @param string $baseCurrencyCode of the base currency
+     * @param string $targetCurrencyCode of the target currency
+     * @param string $date Date string in 'Y-m-d' format
+     * @return ExchangeRate|null The exchange rate or null if not found
      */
-    public function findByBaseAndTarget(string $baseCurrency, string $targetCurrency, ?string $date = null): ?ExchangeRate;
+    public function findRate(string $baseCurrencyCode, string $targetCurrencyCode, string $date): ?ExchangeRate;
 
     /**
-     * Get all exchange rates.
+     * Find the latest available exchange rate (fallback when specific date not found).
      *
-     * @return Collection
+     * @param string $baseCurrencyCode The base currency code
+     * @param string $targetCurrencyCode The target currency code
+     * @return ExchangeRate|null The latest exchange rate or null if not found
      */
-    public function getAll(): Collection;
+    public function findLatestRate(string $baseCurrencyCode, string $targetCurrencyCode): ?ExchangeRate;
 
     /**
-     * Get exchange rates by base currency.
+     * Check if exchange rates exist for a specific base currency and date.
      *
-     * @param string $baseCurrency The base currency code
-     * @param string|null $date Optional date filter
-     * @return Collection
+     * @param string $baseCurrencyCode The base currency code
+     * @param string $date Date string in 'Y-m-d' format
+     * @return bool True if rates exist, false otherwise
      */
-    public function getByBaseCurrency(string $baseCurrency, ?string $date = null): Collection;
+    public function hasRatesForDate(string $baseCurrencyCode, string $date): bool;
 
     /**
-     * Create or update an exchange rate.
+     * Get all base currency codes that have rates for a specific date.
      *
-     * @param array $attributes Search attributes (base_code, target_code, date)
-     * @param array $values Values to update/create
-     * @return ExchangeRate
+     * @param string $date Date string in 'Y-m-d' format
+     * @return array Array of base currency codes
      */
-    public function updateOrCreate(array $attributes, array $values): ExchangeRate;
+    public function getBaseCurrencyCodesWithRatesForDate(string $date): array;
 
-    /**
-     * Create multiple exchange rates.
+     /**
+     * Upsert daily exchange rates for a base currency.
+     * Creates new records or updates existing ones based on unique constraint.
      *
-     * @param array $rates Array of rate data
+     * @param string $baseCurrencyCode of the base currency
+     * @param array $rates Array of rates in format ['target_code' => rate, ...]
+     * @param string $date Date string in 'Y-m-d' format
      * @return void
      */
-    public function createMany(array $rates): void;
+    public function upsertDailyRates(
+        string $baseCurrencyCode,
+        array $rates,
+        string $date
+    ): void;
 }
-
