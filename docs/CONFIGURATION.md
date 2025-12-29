@@ -1,35 +1,51 @@
 # Configuration Guide
 
-Complete guide to configuring the Currency Converter application.
+Local development configuration guide for the Currency Converter application.
 
 ## Environment Variables
 
-All configuration is done via environment variables in the `.env` file.
+All configuration is done via environment variables. The application uses two environment files:
+
+1. **`src/.env`** - Laravel application configuration
+2. **`env/mysql.env`** - MySQL Docker container configuration
 
 ### Required Variables
 
-#### Application Configuration
+#### Application Configuration (`src/.env`)
 
 ```env
 APP_NAME="Currency Converter"
 APP_ENV=local
-APP_KEY=base64:...  # Generated with: php artisan key:generate
+APP_KEY=  # Generated with: docker compose run --rm artisan key:generate
 APP_DEBUG=true
 APP_URL=http://localhost:8000
 ```
 
-#### Database Configuration
+#### Database Configuration (`src/.env`)
+
+**Important:** Use `mysql` as the host to connect to the Docker MySQL container.
 
 ```env
 DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
+DB_HOST=mysql
 DB_PORT=3306
 DB_DATABASE=currency_converter
 DB_USERNAME=your_username
 DB_PASSWORD=your_password
 ```
 
-#### Currency API Configuration
+#### MySQL Docker Configuration (`env/mysql.env`)
+
+```env
+MYSQL_DATABASE=currency_converter
+MYSQL_USER=your_username
+MYSQL_PASSWORD=your_password
+MYSQL_ROOT_PASSWORD=your_root_password
+```
+
+**Note:** Database credentials must match between `src/.env` and `env/mysql.env`.
+
+#### Currency API Configuration (`src/.env`)
 
 ```env
 # Required: Get your API key from https://freecurrencyapi.com/
@@ -40,92 +56,60 @@ CURRENCY_API_KEY=your_api_key_here
 1. Visit https://freecurrencyapi.com/
 2. Sign up for a free account
 3. Get your API key from the dashboard
-4. Add it to your `.env` file
+4. Add it to your `src/.env` file
 
-#### Queue Configuration
+#### Queue Configuration (`src/.env`)
 
 ```env
-# Use 'database' for development, 'redis' for production
 QUEUE_CONNECTION=database
 ```
 
 ### Optional Variables
 
-#### Currency API Advanced Settings
+#### Currency API Advanced Settings (`src/.env`)
+
+These have sensible defaults and usually don't need to be changed:
 
 ```env
 # Override default API base URL (default: https://api.freecurrencyapi.com)
-CURRENCY_API_BASE_URL=https://api.freecurrencyapi.com
+# CURRENCY_API_BASE_URL=https://api.freecurrencyapi.com
 
 # Override API endpoint (default: v1/latest)
-CURRENCY_API_ENDPOINT=v1/latest
+# CURRENCY_API_ENDPOINT=v1/latest
 
 # Request timeout in seconds (default: 30)
-CURRENCY_API_TIMEOUT=30
+# CURRENCY_API_TIMEOUT=30
 
 # Default base currency when none specified (default: USD)
-CURRENCY_DEFAULT_BASE=USD
+# CURRENCY_DEFAULT_BASE=USD
 
 # Delay between API requests in seconds (default: 3)
 # Increase if you encounter rate limit errors
-CURRENCY_REQUEST_DELAY=3
+# CURRENCY_REQUEST_DELAY=3
 
 # Delay between queue job dispatches in seconds (default: 5)
 # Increase if you encounter rate limit errors
-CURRENCY_JOB_DELAY=5
+# CURRENCY_JOB_DELAY=5
 ```
 
-#### Session Configuration
+#### Session Configuration (`src/.env`)
 
 ```env
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
 ```
 
-#### Cache Configuration
+#### Cache Configuration (`src/.env`)
 
 ```env
-CACHE_DRIVER=file
-# For production, use Redis:
-# CACHE_DRIVER=redis
+CACHE_STORE=database
 ```
 
-#### Logging Configuration
+#### Logging Configuration (`src/.env`)
 
 ```env
 LOG_CHANNEL=stack
 LOG_LEVEL=debug
-```
-
-#### Telescope (Optional)
-
-```env
-# Disable if Telescope is not installed
-TELESCOPE_ENABLED=false
-```
-
-### Production Configuration
-
-For production environments, use these settings:
-
-```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://yourdomain.com
-
-# Use Redis for better performance
-QUEUE_CONNECTION=redis
-CACHE_DRIVER=redis
-SESSION_DRIVER=redis
-
-# Increase delays to prevent rate limiting
-CURRENCY_REQUEST_DELAY=5
-CURRENCY_JOB_DELAY=10
-
-# Use secure session settings
-SESSION_SECURE_COOKIE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
 ```
 
 ## Configuration Files
@@ -186,120 +170,23 @@ The free plan typically allows:
 
 Adjust delays accordingly based on your plan.
 
-## Queue Configuration
+## Local Development Setup
 
-### Database Queue (Default)
+### Default Configuration
 
-Uses Laravel's database queue driver:
+The default configuration is optimized for local development with Docker:
 
-```env
-QUEUE_CONNECTION=database
-```
-
-**Pros:**
-- No additional setup required
-- Works out of the box
-- Good for development
-
-**Cons:**
-- Slower than Redis
-- Not ideal for high-volume production
-
-### Redis Queue (Recommended for Production)
-
-For better performance in production:
-
-```env
-QUEUE_CONNECTION=redis
-```
-
-**Setup:**
-1. Install Redis server
-2. Install PHP Redis extension: `pecl install redis`
-3. Update `.env` with Redis connection:
-   ```env
-   REDIS_HOST=127.0.0.1
-   REDIS_PASSWORD=null
-   REDIS_PORT=6379
-   ```
-
-## Cache Configuration
-
-### File Cache (Default)
-
-```env
-CACHE_DRIVER=file
-```
-
-Good for development and small deployments.
-
-### Redis Cache (Production)
-
-```env
-CACHE_DRIVER=redis
-```
-
-Better performance for production environments.
-
-## Session Configuration
-
-### Database Sessions (Recommended)
-
-```env
-SESSION_DRIVER=database
-```
-
-**Setup:**
-1. Create sessions table: `php artisan session:table`
-2. Run migration: `php artisan migrate`
-
-### File Sessions
-
-```env
-SESSION_DRIVER=file
-```
-
-Simpler but less scalable.
-
-## Environment-Specific Configuration
-
-### Development
-
-```env
-APP_ENV=local
-APP_DEBUG=true
-LOG_LEVEL=debug
-QUEUE_CONNECTION=database
-CACHE_DRIVER=file
-```
-
-### Staging
-
-```env
-APP_ENV=staging
-APP_DEBUG=false
-LOG_LEVEL=info
-QUEUE_CONNECTION=database
-CACHE_DRIVER=redis
-```
-
-### Production
-
-```env
-APP_ENV=production
-APP_DEBUG=false
-LOG_LEVEL=error
-QUEUE_CONNECTION=redis
-CACHE_DRIVER=redis
-SESSION_DRIVER=redis
-```
+- **Queue:** Database queue (no additional setup required)
+- **Cache:** Database cache (persists across container restarts)
+- **Session:** Database sessions
+- **Logging:** File-based logging (view with `docker compose logs -f`)
 
 ## Verifying Configuration
 
 ### Check Configuration Values
 
 ```bash
-php artisan tinker
+docker compose run --rm artisan tinker
 ```
 
 ```php
@@ -317,8 +204,8 @@ DB::connection()->getPdo();
 
 ### Test API Connection
 
-```php
-php artisan tinker
+```bash
+docker compose run --rm artisan tinker
 ```
 
 ```php
@@ -327,16 +214,26 @@ $result = $api->fetchLatestRates('USD');
 // Should return array with 'data' key containing rates
 ```
 
+### Test Database Connection
+
+```bash
+# Access MySQL directly
+docker compose exec mysql mysql -u root -p
+
+# Or test via Laravel
+docker compose run --rm artisan tinker
+>>> DB::connection()->getPdo();
+```
+
 ## Configuration Best Practices
 
-1. **Never commit `.env` file** - Use `.env.example` as template
-2. **Use different keys per environment** - Dev, staging, production
-3. **Rotate API keys regularly** - Especially if exposed
-4. **Use strong database passwords** - Especially in production
-5. **Enable HTTPS in production** - Set `APP_URL` to `https://`
-6. **Use Redis in production** - Better performance for queues and cache
-7. **Monitor rate limits** - Adjust delays based on API plan
-8. **Set appropriate timeouts** - Balance between reliability and speed
+1. **Never commit `.env` files** - Both `src/.env` and `env/mysql.env` are ignored by git
+2. **Use `.env.example` as template** - Copy and customize for your setup
+3. **Match database credentials** - Ensure `src/.env` and `env/mysql.env` have matching values
+4. **Use Docker service names** - Use `DB_HOST=mysql` (not `127.0.0.1`) to connect to Docker MySQL
+5. **Get API key early** - Required for exchange rate synchronization
+6. **Monitor rate limits** - Adjust `CURRENCY_REQUEST_DELAY` and `CURRENCY_JOB_DELAY` if needed
+7. **Keep debug enabled** - `APP_DEBUG=true` is fine for local development
 
 ## Troubleshooting Configuration
 
@@ -344,29 +241,90 @@ $result = $api->fetchLatestRates('USD');
 
 ```bash
 # Clear config cache
-php artisan config:clear
+docker compose run --rm artisan config:clear
 
 # Clear all caches
-php artisan optimize:clear
+docker compose run --rm artisan optimize:clear
 ```
 
 ### Environment Variables Not Loading
 
-1. Ensure `.env` file exists in `src/` directory
-2. Check file permissions
+1. Ensure `src/.env` file exists
+2. Ensure `env/mysql.env` file exists
 3. Verify variable names match exactly (case-sensitive)
-4. Restart queue worker if running
+4. Restart Docker containers: `docker compose restart`
+5. Restart queue worker if running
+
+### Database Connection Issues
+
+1. **Check MySQL container is running:**
+   ```bash
+   docker compose ps
+   ```
+
+2. **Verify DB_HOST in `src/.env`:**
+   - Should be `DB_HOST=mysql` (not `127.0.0.1`)
+   - This uses Docker's internal network
+
+3. **Check credentials match:**
+   - `src/.env` DB_USERNAME/DB_PASSWORD must match `env/mysql.env` MYSQL_USER/MYSQL_PASSWORD
+
+4. **Test connection:**
+   ```bash
+   docker compose exec mysql mysql -u root -p
+   ```
 
 ### API Key Not Working
 
-1. Verify key is correct (no extra spaces)
+1. Verify key is correct (no extra spaces or quotes)
 2. Check API key is active at https://freecurrencyapi.com/
 3. Verify API key has sufficient quota
-4. Check API base URL is correct
+4. Check logs for errors: `docker compose logs -f php`
+5. Test API connection manually (see Verifying Configuration section)
+
+### Rate Limit Errors
+
+If you encounter HTTP 429 (rate limit) errors:
+
+1. Increase delays in `src/.env`:
+   ```env
+   CURRENCY_REQUEST_DELAY=5
+   CURRENCY_JOB_DELAY=10
+   ```
+
+2. Check your API plan limits at https://freecurrencyapi.com/
+3. Monitor job logs: `docker compose logs -f`
+
+## Docker-Specific Notes
+
+### Container Networking
+
+- Use service names (e.g., `mysql`, `php`) as hostnames when connecting between containers
+- `DB_HOST=mysql` connects to the MySQL container via Docker's internal network
+- External access: MySQL is exposed on port `3316` (not default 3306)
+
+### Persistent Data
+
+- Database data is stored in Docker volume `db_data`
+- Application code is mounted from `./src` directory (live editing supported)
+- Logs are in `src/storage/logs` directory
+
+### Running Commands
+
+All Laravel commands should be run via Docker:
+
+```bash
+# Instead of: php artisan migrate
+docker compose run --rm artisan migrate
+
+# Instead of: composer install
+docker compose run --rm composer install
+```
 
 ## Additional Resources
 
 - [Laravel Configuration Documentation](https://laravel.com/docs/configuration)
 - [FreeCurrencyAPI Documentation](https://freecurrencyapi.com/docs)
 - [Laravel Queue Documentation](https://laravel.com/docs/queues)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
 
