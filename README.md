@@ -14,11 +14,8 @@ A Laravel-based currency converter application with real-time exchange rates, fe
 
 ## Requirements
 
-- **PHP** 8.4 or higher
-- **Composer** 2.0+
-- **Node.js** 18+ and npm
-- **MySQL** 8.0+ (or compatible database)
-- **Redis** (optional, recommended for production queues)
+- **Docker** and **Docker Compose**
+- **Node.js** 18+ and npm (for frontend build/dev server, can also run in Docker if needed)
 
 ## Quick Start
 
@@ -26,75 +23,108 @@ A Laravel-based currency converter application with real-time exchange rates, fe
 
 ```bash
 git clone <repository-url>
-cd converter/src
+cd converter
 ```
 
-### 2. Install Dependencies
+### 2. Setup Environment Files
+
+```bash
+# Copy MySQL environment file
+cp env/mysql.env.example env/mysql.env
+
+# Copy Laravel environment file
+cp src/.env.example src/.env
+```
+
+Edit `env/mysql.env` and `src/.env` with your configuration (see [Configuration Guide](docs/CONFIGURATION.md))
+
+### 3. Build Docker Images
+
+```bash
+docker compose build
+```
+
+This will build the custom PHP and Composer images defined in the `dockerfiles/` directory.
+
+### 4. Start Docker Containers
+
+```bash
+docker compose up -d
+```
+
+This will start:
+- **Nginx** (web server on port 8000)
+- **PHP-FPM** (Laravel application)
+- **MySQL 8.0** (database on port 3316)
+
+The **composer** and **artisan** services are available as run commands (not persistent containers).
+
+### 5. Install PHP Dependencies
+
+```bash
+docker compose run --rm composer install
+```
+
+### 6. Install Frontend Dependencies
 
 ```bash
 cd src
-composer install
 npm install
 ```
 
-### 3. Environment Setup
+### 7. Generate Application Key
 
 ```bash
-cp .env.example .env
-php artisan key:generate
+docker compose run --rm artisan key:generate
 ```
 
-Edit `.env` file with your configuration (see [Configuration Guide](docs/CONFIGURATION.md))
-
-### 4. Database Setup
+### 8. Run Database Migrations
 
 ```bash
-php artisan migrate
+docker compose run --rm artisan migrate
 ```
 
-### 5. Build Frontend Assets
+### 9. Build Frontend Assets
 
 ```bash
 # Production build
-npm run build
+cd src && npm run build
 
-# Development (with hot reload)
-npm run dev
+# Development (with hot reload, in separate terminal)
+cd src && npm run dev
 ```
 
-### 6. Start Queue Worker
+### 10. Start Queue Worker
 
 ```bash
-php artisan queue:work
+docker compose run --rm artisan queue:work
 ```
 
-**Important:** The queue worker must be running for exchange rate synchronization to work.
+**Important:** The queue worker must be running for exchange rate synchronization to work. In production, consider running this as a background service or add it as a service in docker-compose.yml.
 
-### 7. Setup Scheduler (Cron)
+### 11. Setup Scheduler (Cron)
 
-Add to your crontab:
+The scheduler can run inside the Docker container. Add to a cron job on your host:
 
 ```bash
-* * * * * cd /path-to-project/src && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /path-to-project && docker compose run --rm artisan schedule:run >> /dev/null 2>&1
 ```
 
-This runs the scheduler every minute, which will execute scheduled tasks (like daily rate sync).
+Or run the scheduler inside a container with a cron service.
 
-### 8. Run Initial Rate Sync
+### 12. Run Initial Rate Sync
 
 ```bash
-php artisan app:currency-rates-sync
+docker compose run --rm artisan app:currency-rates-sync
 ```
 
 This will dispatch jobs to fetch exchange rates for all supported currencies.
 
-### 9. Start Development Server
-
-```bash
-php artisan serve
-```
+### 13. Access the Application
 
 Visit `http://localhost:8000` to see the application.
+
+**Note:** MySQL is accessible on port `3316` (not the default 3306) to avoid conflicts.
 
 ## Documentation
 
@@ -122,21 +152,52 @@ currency-converter-test-task/
 
 ## Key Commands
 
+### Docker Commands
+
+```bash
+# Build Docker images
+docker compose build
+
+# Start containers
+docker compose up -d
+
+# Stop containers
+docker compose down
+
+# View logs
+docker compose logs -f
+
+# Execute Laravel commands
+docker compose run --rm artisan <command>
+docker compose run --rm composer <command>
+
+# Access PHP container shell
+docker compose exec php sh
+
+# Access MySQL
+docker compose exec mysql mysql -u root -p
+```
+
+### Application Commands
+
 ```bash
 # Run queue worker
-php artisan queue:work
+docker compose run --rm artisan queue:work
 
 # Sync exchange rates manually
-php artisan app:currency-rates-sync
+docker compose run --rm artisan app:currency-rates-sync
 
 # Run tests
-php artisan test
+docker compose run --rm artisan test
 
 # Clear cache
-php artisan cache:clear
-php artisan config:clear
+docker compose run --rm artisan cache:clear
+docker compose run --rm artisan config:clear
 
-# Development mode (server + queue + logs + vite)
+# Run migrations
+docker compose run --rm artisan migrate
+
+# Development mode (if running locally)
 composer run dev
 ```
 
@@ -231,23 +292,76 @@ Ensure cron is configured to run `php artisan schedule:run` every minute.
 
 ### Required Environment Variables
 
+**`src/.env` file:**
+
 ```env
-# Database
+# Application
+APP_NAME="Currency Converter"
+APP_ENV=local
+APP_KEY=  # Generated with: docker compose run --rm artisan key:generate
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+# Database (Docker MySQL container - use service name 'mysql' as host)
 DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
+DB_HOST=mysql
 DB_PORT=3306
 DB_DATABASE=currency_converter
 DB_USERNAME=your_username
 DB_PASSWORD=your_password
 
-# Currency API (get key from https://freecurrencyapi.com/)
+# Currency API (Required - get key from https://freecurrencyapi.com/)
 CURRENCY_API_KEY=your_api_key_here
 
 # Queue
 QUEUE_CONNECTION=database
 ```
 
-See [Configuration Guide](docs/CONFIGURATION.md) for all options.
+**`env/mysql.env` file:**
+
+```env
+MYSQL_DATABASE=currency_converter
+MYSQL_USER=your_username
+MYSQL_PASSWORD=your_password
+MYSQL_ROOT_PASSWORD=your_root_password
+```
+
+**Important:**
+- Make sure the database credentials match between `src/.env` and `env/mysql.env`
+- Get your API key from https://freecurrencyapi.com/
+- Use `DB_HOST=mysql` (not `127.0.0.1`) to connect to the Docker MySQL container
+
+### Optional Environment Variables
+
+```env
+# Currency API Advanced Settings
+CURRENCY_API_BASE_URL=https://api.freecurrencyapi.com
+CURRENCY_API_ENDPOINT=v1/latest
+CURRENCY_API_TIMEOUT=30
+CURRENCY_DEFAULT_BASE=USD
+CURRENCY_REQUEST_DELAY=3
+CURRENCY_JOB_DELAY=5
+
+# Session Configuration
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+
+# Cache Configuration
+CACHE_DRIVER=file
+
+# Logging Configuration
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+```
+
+### Getting a Currency API Key
+
+1. Visit https://freecurrencyapi.com/
+2. Sign up for a free account
+3. Get your API key from the dashboard
+4. Add it to your `src/.env` file as `CURRENCY_API_KEY=your_key_here`
+
+See [Configuration Guide](docs/CONFIGURATION.md) for detailed options and production settings.
 
 ## Troubleshooting
 
