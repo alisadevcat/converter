@@ -46,6 +46,7 @@ class SyncCurrencyExchangeRates implements ShouldQueue
     public function handle(
         CurrencyApiInterface $currencyApi,
         ExchangeRateRepositoryInterface $exchangeRateRepository,
+        CurrencyConfigService $currencyConfigService,
     ): void {
         // Check if this currency already has rates for today
         if ($exchangeRateRepository->hasRatesForDate($this->currencyCode, $this->date)) {
@@ -60,7 +61,7 @@ class SyncCurrencyExchangeRates implements ShouldQueue
 
         try {
             // Transaction: fetch rates and update DB atomically
-            DB::transaction(function () use ($currencyApi, $exchangeRateRepository) {
+            DB::transaction(function () use ($currencyApi, $exchangeRateRepository, $currencyConfigService) {
                 // Fetch rates from API
                 $apiResponse = $currencyApi->fetchLatestRates($this->currencyCode);
 
@@ -71,7 +72,7 @@ class SyncCurrencyExchangeRates implements ShouldQueue
                 $rates = $apiResponse['data'];
 
                 // Filter rates to only include supported currencies and exclude base currency
-                $filteredRates = $this->filterRates($rates);
+                $filteredRates = $this->filterRates($rates, $currencyConfigService);
 
                 // Upsert rates using repository method
                 $exchangeRateRepository->upsertDailyRates(
@@ -126,15 +127,17 @@ class SyncCurrencyExchangeRates implements ShouldQueue
      * Filter API rates to only include supported currencies and exclude base currency.
      *
      * @param array $rates Rates from API in format ['targetCode' => rate, ...]
+     * @param CurrencyConfigService $currencyConfigService
      * @return array Filtered rates array
      */
-    private function filterRates(array $rates): array
+    private function filterRates(array $rates, CurrencyConfigService $currencyConfigService): array
     {
         $filtered = [];
+        $supportedCodes = $currencyConfigService->getSupportedCodes();
 
         foreach ($rates as $targetCode => $rate) {
             // Skip unsupported currencies (validate against hardcoded list)
-            if (!CurrencyConfigService::isValidCode($targetCode)) {
+            if (!in_array($targetCode, $supportedCodes)) {
                 continue;
             }
 

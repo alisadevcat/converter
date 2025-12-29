@@ -29,7 +29,7 @@ return [
     'HKD' => ['name' => 'Hong Kong Dollar', 'symbol' => '$'],
     'IDR' => ['name' => 'Indonesian Rupiah', 'symbol' => 'Rp'],
     'ILS' => ['name' => 'Israeli New Sheqel', 'symbol' => '₪'],
-    'INR' => ['name' => 'Indian Rupee', 'symbol' => 'টকা'],
+    'INR' => ['name' => 'Indian Rupee', 'symbol' => '₹'],
     'KRW' => ['name' => 'South Korean Won', 'symbol' => '₩'],
     'MXN' => ['name' => 'Mexican Peso', 'symbol' => '$'],
     'MYR' => ['name' => 'Malaysian Ringgit', 'symbol' => 'RM'],

@@ -3,8 +3,11 @@ namespace App\Modules\Currency\Providers;
 
 use App\Modules\Currency\Contracts\Api\CurrencyApiInterface;
 use App\Modules\Currency\Repositories\Api\CurrencyApiRepository;
+use App\Modules\Currency\Contracts\CurrencyConverterInterface;
 use App\Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
 use App\Modules\Currency\Repositories\ExchangeRateRepository;
+use App\Modules\Currency\Services\ConverterService;
+use App\Modules\Currency\Services\CurrencyConfigService;
 
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +20,12 @@ class CurrencyServiceProvider extends ServiceProvider
         {
             $this->app->bind(CurrencyApiInterface::class, CurrencyApiRepository::class);
             $this->app->bind(ExchangeRateRepositoryInterface::class, ExchangeRateRepository::class);
+            $this->app->bind(CurrencyConverterInterface::class, ConverterService::class);
+
+            // Register CurrencyConfigService as singleton
+            $this->app->singleton(CurrencyConfigService::class, function ($app) {
+                return new CurrencyConfigService();
+            });
         }
 
         /**

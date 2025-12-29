@@ -15,7 +15,8 @@ class ExchangeRateController extends Controller
 {
     public function __construct(
         private ExchangeRateRepositoryInterface $exchangeRateRepository,
-        private ExchangeRateSyncService $exchangeRateSyncService
+        private ExchangeRateSyncService $exchangeRateSyncService,
+        private CurrencyConfigService $currencyConfigService
     ) {}
 
     /**
@@ -23,8 +24,8 @@ class ExchangeRateController extends Controller
      */
     public function index(): Response
     {
-        $currencies = CurrencyConfigService::getSupportedCodes();
-        $exchangeRates = CurrencyConfigService::isValidCode('USD')
+        $currencies = $this->currencyConfigService->getSupportedCodes();
+        $exchangeRates = $this->currencyConfigService->isValidCode('USD')
             ? $this->exchangeRateRepository->getLatestRatesByBaseCurrencyCode('USD')
             : collect();
 
@@ -41,10 +42,12 @@ class ExchangeRateController extends Controller
      */
     public function show(string $baseCurrency): Response
     {
-        $currencies = CurrencyConfigService::getSupportedCodes();
-        $exchangeRates = CurrencyConfigService::isValidCode($baseCurrency)
-            ? $this->exchangeRateRepository->getLatestRatesByBaseCurrencyCode($baseCurrency)
-            : collect();
+        if (!$this->currencyConfigService->isValidCode($baseCurrency)) {
+            abort(404, 'Currency not found');
+        }
+
+        $currencies = $this->currencyConfigService->getSupportedCodes();
+        $exchangeRates = $this->exchangeRateRepository->getLatestRatesByBaseCurrencyCode($baseCurrency);
 
         return Inertia::render('Admin/ExchangeRates/Index', [
             'exchangeRates' => ExchangeRateResource::collection($exchangeRates),
@@ -53,10 +56,25 @@ class ExchangeRateController extends Controller
     }
 
     /**
-     * Sync daily exchange rates by dispatching queue jobs. Temporary method for testing manual update.
+     * Sync daily exchange rates by dispatching queue jobs.
      */
     public function syncDailyRates(): RedirectResponse
     {
+        // Validate queue configuration
+        $queueDriver = config('queue.default');
+        if (!$queueDriver || $queueDriver === 'sync') {
+            return redirect()->back()->with('error',
+                'Queue is not properly configured. Please configure a queue driver (e.g., database, redis) in your .env file.'
+            );
+        }
+
+        // Check if API key is configured
+        if (empty(config('currency.api.api_key'))) {
+            return redirect()->back()->with('error',
+                'Currency API key is not configured. Please set CURRENCY_API_KEY in your .env file.'
+            );
+        }
+
         try {
             $this->exchangeRateSyncService->syncDailyRates();
 

@@ -11,7 +11,8 @@ use Carbon\Carbon;
 class ExchangeRateSyncService
 {
     public function __construct(
-        private ExchangeRateRepositoryInterface $exchangeRateRepository
+        private ExchangeRateRepositoryInterface $exchangeRateRepository,
+        private CurrencyConfigService $currencyConfigService
     ) {}
 
     /**
@@ -30,7 +31,7 @@ class ExchangeRateSyncService
     public function syncDailyRates(): void
     {
         $today = Carbon::today()->toDateString();
-        $currencyCodes = CurrencyConfigService::getSupportedCodes();
+        $currencyCodes = $this->currencyConfigService->getSupportedCodes();
 
         if (empty($currencyCodes)) {
             Log::error('No currencies found in configuration.');

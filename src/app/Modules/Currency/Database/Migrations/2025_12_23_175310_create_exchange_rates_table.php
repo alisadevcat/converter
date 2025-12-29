@@ -21,11 +21,11 @@ return new class extends Migration
             $table->date('date');
             $table->timestamps();
 
-            $table->unique(['base_code', 'target_code', 'date'], 'er_base_target_date_unique');
+            // Unique constraint ensures no duplicate rates for same currency pair on same date
+            $table->unique(['base_code', 'target_code', 'date']);
 
-            // Indexes for performance
-            $table->index('base_code');
-            $table->index('target_code');
+            $table->index(['base_code', 'date']);
+            $table->index(['base_code', 'target_code']);
         });
     }
 

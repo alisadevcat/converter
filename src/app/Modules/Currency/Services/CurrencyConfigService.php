@@ -4,44 +4,46 @@ namespace App\Modules\Currency\Services;
 
 class CurrencyConfigService
 {
-    private static ?array $currencies = null;
+    private array $currencies;
 
-    private static function getCurrencies(): array
+    public function __construct()
     {
-        if (self::$currencies === null) {
-            self::$currencies = require __DIR__ . '/../Configuration/currencies.php';
-        }
-        return self::$currencies;
+        $this->currencies = require __DIR__ . '/../Configuration/currencies.php';
     }
 
-    public static function getSupportedCodes(): array
+    public function getSupportedCodes(): array
     {
-        return array_keys(self::getCurrencies());
+        return array_keys($this->currencies);
     }
 
-    public static function getActiveCodes(): array
+    public function getActiveCodes(): array
     {
         // All currencies in the map are considered active
-        return self::getSupportedCodes();
+        return $this->getSupportedCodes();
     }
 
-    public static function getCurrencyInfo(string $code): ?array
+    public function getCurrencyInfo(string $code): ?array
     {
-        return self::getCurrencies()[$code] ?? null;
+        return $this->currencies[$code] ?? null;
     }
 
-    public static function isValidCode(string $code): bool
+    public function isValidCode(string $code): bool
     {
-        return isset(self::getCurrencies()[$code]);
+        return isset($this->currencies[$code]);
     }
 
-    public static function getName(string $code): ?string
+    public function getName(string $code): ?string
     {
-        return self::getCurrencies()[$code]['name'] ?? null;
+        return $this->currencies[$code]['name'] ?? null;
     }
 
-    public static function getSymbol(string $code): ?string
+    public function getSymbol(string $code): ?string
     {
-        return self::getCurrencies()[$code]['symbol'] ?? null;
+        return $this->currencies[$code]['symbol'] ?? null;
+    }
+
+    public function getCurrencies(): array
+    {
+        return $this->currencies;
     }
 }

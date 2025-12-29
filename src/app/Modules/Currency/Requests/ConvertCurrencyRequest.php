@@ -25,6 +25,8 @@ class ConvertCurrencyRequest extends FormRequest
      */
     public function rules(): array
     {
+        $currencyConfigService = app(CurrencyConfigService::class);
+
         return [
             'amount' => [
                 'required',
@@ -37,8 +39,8 @@ class ConvertCurrencyRequest extends FormRequest
                 'string',
                 'size:' . self::CURRENCY_CODE_LENGTH,
                 'uppercase',
-                function ($attribute, $value, $fail) {
-                    if (!CurrencyConfigService::isValidCode($value)) {
+                function ($attribute, $value, $fail) use ($currencyConfigService) {
+                    if (!$currencyConfigService->isValidCode($value)) {
                         $fail('The selected source currency code is not supported. Please select a valid currency.');
                     }
                 },
@@ -48,8 +50,8 @@ class ConvertCurrencyRequest extends FormRequest
                 'string',
                 'size:' . self::CURRENCY_CODE_LENGTH,
                 'uppercase',
-                function ($attribute, $value, $fail) {
-                    if (!CurrencyConfigService::isValidCode($value)) {
+                function ($attribute, $value, $fail) use ($currencyConfigService) {
+                    if (!$currencyConfigService->isValidCode($value)) {
                         $fail('The selected target currency code is not supported. Please select a valid currency.');
                     }
                 },

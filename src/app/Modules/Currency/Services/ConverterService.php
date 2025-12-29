@@ -2,17 +2,20 @@
 
 namespace App\Modules\Currency\Services;
 
+use App\Modules\Currency\Contracts\CurrencyConverterInterface;
 use App\Modules\Currency\Contracts\ExchangeRateRepositoryInterface;
 use App\Modules\Currency\DTOs\CurrencyConversionResult;
 use App\Modules\Currency\Models\ExchangeRate;
+use App\Modules\Currency\Services\CurrencyConfigService;
 use Carbon\Carbon;
 
-class ConverterService
+class ConverterService implements CurrencyConverterInterface
 {
     private const USD_CODE = 'USD';
 
     public function __construct(
-        private ExchangeRateRepositoryInterface $exchangeRateRepository
+        private ExchangeRateRepositoryInterface $exchangeRateRepository,
+        private CurrencyConfigService $currencyConfigService
     ) {}
 
     /**
@@ -28,11 +31,11 @@ class ConverterService
     public function convert(float $amount, string $fromCurrency, string $toCurrency): CurrencyConversionResult
     {
         // Validate currency codes (this should already be validated by the request, but double-check for safety)
-        if (!CurrencyConfigService::isValidCode($fromCurrency)) {
+        if (!$this->currencyConfigService->isValidCode($fromCurrency)) {
             throw new \InvalidArgumentException("The source currency code '{$fromCurrency}' is not supported. Please select a valid currency.");
         }
 
-        if (!CurrencyConfigService::isValidCode($toCurrency)) {
+        if (!$this->currencyConfigService->isValidCode($toCurrency)) {
             throw new \InvalidArgumentException("The target currency code '{$toCurrency}' is not supported. Please select a valid currency.");
         }
 
@@ -100,7 +103,7 @@ class ConverterService
      */
     private function convertViaUsd(string $fromCurrencyCode, string $toCurrencyCode, string $date): ?float
     {
-        if (!CurrencyConfigService::isValidCode(self::USD_CODE)) {
+        if (!$this->currencyConfigService->isValidCode(self::USD_CODE)) {
             return null;
         }
 

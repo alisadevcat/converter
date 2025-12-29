@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ExchangeRate extends Model
 {
+    protected $table = 'exchange_rates';
+
     protected $fillable = [
         'base_code',
         'target_code',
@@ -15,7 +17,7 @@ class ExchangeRate extends Model
 
     protected $casts = [
         'rate' => 'decimal:8',
-        'date' => 'datetime:Y-m-d H:i:s',
+        'date' => 'date',
         'created_at' => 'datetime:Y-m-d H:i:s',
         'updated_at' => 'datetime:Y-m-d H:i:s',
     ];

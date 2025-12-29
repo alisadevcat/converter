@@ -26,7 +26,7 @@ A Laravel-based currency converter application with real-time exchange rates, fe
 
 ```bash
 git clone <repository-url>
-cd currency-converter-test-task
+cd converter/src
 ```
 
 ### 2. Install Dependencies

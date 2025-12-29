@@ -2,5 +2,5 @@
 
 return [
     App\Providers\AppServiceProvider::class,
-    Modules\Currency\Providers\CurrencyServiceProvider::class,
+    App\Modules\Currency\Providers\CurrencyServiceProvider::class,
 ];
